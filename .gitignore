@@ -1,0 +1,12 @@
+## Build and compiler caches
+bin/
+obj/
+
+## Installer outputs and packaged release archives
+InstallerOutput/
+*.zip
+*.exe
+
+## User-specific dev files
+*.user
+.vs/

@@ -1,0 +1,741 @@
+<Window x:Class="PeekHUD.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PeekHUD"
+        Title="PeekHUD v1.0 - Settings" Icon="pack://application:,,,/PeekIcon.ico"
+        Width="620" Height="645" MinWidth="560" MinHeight="530"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="12" Typography.NumeralAlignment="Tabular"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        PreviewMouseDown="Window_PreviewMouseDown">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Metrics tab row: [switch + label] .......... [Number | Graph] -->
+        <DataTemplate x:Key="MetricToggleRow" DataType="{x:Type local:MetricSetting}">
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="MetricStyleCol"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" Content="{Binding Label}"/>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="3"
+                            Background="{DynamicResource WindowBrush}" IsEnabled="{Binding Enabled}">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Seg}" Content="Number" IsChecked="{Binding IsNumber}"/>
+                            <RadioButton Style="{StaticResource Seg}" Content="Graph" IsChecked="{Binding IsGraph}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Preview swatch button (24x24, CornerRadius=4) that opens the color preset popup -->
+        <Style x:Key="MetricSwatchButton" TargetType="Button">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="4" BorderThickness="1"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource LineBrush}"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Preset swatch button inside the color picker popup -->
+        <Style x:Key="PopupSwatchButton" TargetType="Button">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="4" BorderThickness="1"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource LineBrush}"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Overlay tab row: [label] ........................ [24x24 swatch] [#hex] -->
+        <DataTemplate x:Key="MetricColorRow" DataType="{x:Type local:MetricSetting}">
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource MetricSwatchButton}"
+                                Background="{Binding ColorBrush}"
+                                Margin="0,0,8,0"
+                                ToolTip="Choose preset color"
+                                Click="MetricSwatch_Click"/>
+                        <TextBox Width="86" Height="26" Padding="4,0" VerticalContentAlignment="Center"
+                                 MaxLength="9" ToolTip="Hex color, e.g. #FFFFFF"
+                                 Text="{Binding ColorHex, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsColorValid}" Value="False">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource CritBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Dedicated Edit Mode action button: Theme-aware ("Move HUD") <-> High-contrast Alert Red ("Lock Position") -->
+        <Style x:Key="MoveHudButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="116"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Content" Value="Move HUD"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Padding="12,5" CornerRadius="2" BorderThickness="1"
+                                Background="{DynamicResource MoveBtnBgBrush}"
+                                BorderBrush="{DynamicResource MoveBtnBorderBrush}">
+                            <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{DynamicResource MoveBtnFgBrush}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MoveBtnHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding EditMode}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#DC2626"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#EF4444"/>
+                                <Setter TargetName="Cp" Property="TextElement.Foreground" Value="#FFFFFF"/>
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding EditMode}" Value="True"/>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="#B91C1C"/>
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding EditMode}" Value="True">
+                    <Setter Property="Content" Value="Lock Position"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DimBrush}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+            <Setter Property="Margin" Value="2,0,0,5"/>
+        </Style>
+
+        <Style x:Key="PrimaryLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+
+        <Style x:Key="HintText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DimBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style x:Key="Value" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="PanelBox" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+
+        <Style x:Key="ThresholdBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="MaxLength" Value="3"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Validation.ErrorTemplate" Value="{x:Null}"/>
+        </Style>
+
+        <Style x:Key="ThresholdTag" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DimBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+
+        <!-- Prominent high-contrast action button for factory reset -->
+        <Style x:Key="DangerButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Padding="14,6" CornerRadius="2" BorderThickness="1"
+                                Background="#DC2626" BorderBrush="#EF4444">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="#FFFFFF"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#B91C1C"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Clean flat action link button for About & Support -->
+        <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Padding="10,5" CornerRadius="4" BorderThickness="1"
+                                Background="{DynamicResource WindowBrush}"
+                                BorderBrush="{DynamicResource LineBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{DynamicResource TextBrush}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Official Buy Me a Coffee button (#FFDD00 background, bold black text) -->
+        <Style x:Key="BmcButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Padding="11,5" CornerRadius="4" BorderThickness="1"
+                                Background="#FFDD00" BorderBrush="#E6C700">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="#000000"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FFE633"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#D4B800"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E6C700"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl Margin="0">
+
+            <!-- ============================ METRICS ============================ -->
+            <TabItem Header="Metrics">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,14,16,14" Grid.IsSharedSizeScope="True">
+                        <Grid Margin="2,0,13,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="MetricStyleCol"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource SectionLabel}" Margin="0" Text="VISIBLE METRICS"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource SectionLabel}" Margin="0"
+                                       HorizontalAlignment="Center" Text="DISPLAY STYLE"/>
+                        </Grid>
+                        <Border Style="{StaticResource PanelBox}">
+                            <ItemsControl ItemsSource="{Binding Metrics}" ItemTemplate="{StaticResource MetricToggleRow}"
+                                          KeyboardNavigation.TabNavigation="Continue"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================ OVERLAY ============================ -->
+            <TabItem Header="Overlay">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,14,16,14">
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="METRIC COLOR"/>
+                        <Border Style="{StaticResource PanelBox}">
+                            <ItemsControl ItemsSource="{Binding Metrics}" ItemTemplate="{StaticResource MetricColorRow}"/>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="HUD CONFIGURATION" Margin="2,12,0,5"/>
+                        <Border Style="{StaticResource PanelBox}">
+                            <StackPanel>
+                                <!-- Row 1: Position -->
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource PrimaryLabel}" Text="HUD position" VerticalAlignment="Center"
+                                                   ToolTip="Locked = click-through, always on top. Unlock to drag the HUD on screen."/>
+                                        <Button Grid.Column="1" VerticalAlignment="Center"
+                                                Style="{StaticResource MoveHudButton}"
+                                                Click="EditModeToggle_Click"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Row 2: Scale -->
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="164"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource PrimaryLabel}" Text="Scale" VerticalAlignment="Center"/>
+                                        <Slider Grid.Column="1" Minimum="0.8" Maximum="1.5" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                SmallChange="0.05" LargeChange="0.1" Value="{Binding Scale, Mode=TwoWay}"/>
+                                        <TextBlock Grid.Column="2" Style="{StaticResource Value}" Text="{Binding Scale, StringFormat={}{0:P0}}"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Row 3: Background Transparency -->
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="164"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource PrimaryLabel}" Text="Background Transparency"
+                                                   VerticalAlignment="Center" ToolTip="0% = Solid, 100% = Clear/Transparent"/>
+                                        <Slider Grid.Column="1" Minimum="0" Maximum="1.0" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                SmallChange="0.05" LargeChange="0.1" Value="{Binding BgTransparency, Mode=TwoWay}"/>
+                                        <TextBlock Grid.Column="2" Style="{StaticResource Value}" Text="{Binding BgTransparency, StringFormat={}{0:P0}}"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Row 4: Visibility & Global Hotkey -->
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Style="{StaticResource Switch}" Content="Show overlay"
+                                                      IsChecked="{Binding OverlayVisible}" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource HintText}" FontSize="11"
+                                                           Text="Hide / show HUD" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox x:Name="HotkeyBox" Width="136" IsReadOnly="True" TextAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         ToolTip="Focus the box and press a combination (needs Ctrl, Shift, Alt or Win)"
+                                                         Text="{Binding Hotkey, Mode=OneWay}" PreviewKeyDown="Hotkey_PreviewKeyDown"/>
+                                                <Button Margin="6,0,0,0" VerticalAlignment="Center"
+                                                        Style="{StaticResource FlatButton}" Content="Reset" Click="HotkeyReset_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock x:Name="HotkeyStatus" Visibility="Collapsed" Margin="0,5,0,0"
+                                                   FontSize="11" Style="{StaticResource HintText}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Row 5: Alerts -->
+                                <Border Padding="12,9">
+                                    <CheckBox Style="{StaticResource Switch}"
+                                              IsChecked="{Binding EnableWarningColors}"
+                                              Content="Dynamic Warning Colors (Alerts in amber/red when temps or load spike)"/>
+                                </Border>
+
+                                <!-- Collapsible Warning / Critical custom palette rows -->
+                                <StackPanel Visibility="{Binding EnableWarningColors, Converter={StaticResource BoolToVis}}">
+                                    <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="12,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Width="10" Height="10" CornerRadius="2" Background="{Binding WarningColorBrush}"
+                                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Margin="0,0,9,0"/>
+                                                <TextBlock Style="{StaticResource PrimaryLabel}" Text="Warning Color" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                    <Button Style="{StaticResource Swatch}" Background="#F59E0B" Tag="#F59E0B" Click="WarningPreset_Click" ToolTip="Amber"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#EAB308" Tag="#EAB308" Click="WarningPreset_Click" ToolTip="Yellow"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#FB923C" Tag="#FB923C" Click="WarningPreset_Click" ToolTip="Orange"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#22D3EE" Tag="#22D3EE" Click="WarningPreset_Click" ToolTip="Cyan"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#EDEDED" Tag="#EDEDED" Click="WarningPreset_Click" ToolTip="White"/>
+                                                </StackPanel>
+                                                <TextBox Width="86" MaxLength="9" ToolTip="Warning hex color, e.g. #F59E0B"
+                                                         Text="{Binding WarningColor, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBox.Style>
+                                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsWarningColorValid}" Value="False">
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource CritBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBox.Style>
+                                                </TextBox>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="12,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Width="10" Height="10" CornerRadius="2" Background="{Binding CriticalColorBrush}"
+                                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Margin="0,0,9,0"/>
+                                                <TextBlock Style="{StaticResource PrimaryLabel}" Text="Critical Color" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                    <Button Style="{StaticResource Swatch}" Background="#EF4444" Tag="#EF4444" Click="CriticalPreset_Click" ToolTip="Red"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#DC2626" Tag="#DC2626" Click="CriticalPreset_Click" ToolTip="Crimson"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#F43F5E" Tag="#F43F5E" Click="CriticalPreset_Click" ToolTip="Rose"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#F97316" Tag="#F97316" Click="CriticalPreset_Click" ToolTip="Deep Orange"/>
+                                                    <Button Style="{StaticResource Swatch}" Background="#EC4899" Tag="#EC4899" Click="CriticalPreset_Click" ToolTip="Magenta"/>
+                                                </StackPanel>
+                                                 <TextBox Width="86" MaxLength="9" ToolTip="Critical hex color, e.g. #EF4444"
+                                                          Text="{Binding CriticalColor, UpdateSourceTrigger=PropertyChanged}">
+                                                     <TextBox.Style>
+                                                         <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                             <Style.Triggers>
+                                                                 <DataTrigger Binding="{Binding IsCriticalColorValid}" Value="False">
+                                                                     <Setter Property="BorderBrush" Value="{DynamicResource CritBrush}"/>
+                                                                 </DataTrigger>
+                                                             </Style.Triggers>
+                                                         </Style>
+                                                     </TextBox.Style>
+                                                 </TextBox>
+                                             </StackPanel>
+                                         </Grid>
+                                     </Border>
+
+                                     <!-- Configurable Warning / Critical numeric thresholds -->
+                                     <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="12,8">
+                                         <Grid x:Name="ThresholdsGrid">
+                                             <Grid.RowDefinitions>
+                                                 <RowDefinition Height="Auto"/>
+                                                 <RowDefinition Height="6"/>
+                                                 <RowDefinition Height="Auto"/>
+                                                 <RowDefinition Height="6"/>
+                                                 <RowDefinition Height="Auto"/>
+                                             </Grid.RowDefinitions>
+                                             <Grid.ColumnDefinitions>
+                                                 <ColumnDefinition Width="*"/>
+                                                 <ColumnDefinition Width="Auto"/>
+                                                 <ColumnDefinition Width="14"/>
+                                                 <ColumnDefinition Width="Auto"/>
+                                             </Grid.ColumnDefinitions>
+
+                                             <TextBlock Grid.Row="0" Style="{StaticResource PrimaryLabel}"
+                                                        Text="Temperature (&#x00B0;C)" VerticalAlignment="Center"
+                                                        ToolTip="CPU &amp; GPU temperature thresholds in degrees Celsius"/>
+                                             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                                 <TextBlock Style="{StaticResource ThresholdTag}" Text="WARN"/>
+                                                 <TextBox Style="{StaticResource ThresholdBox}"
+                                                          Text="{Binding TempWarning, UpdateSourceTrigger=PropertyChanged}"
+                                                          PreviewTextInput="ThresholdBox_PreviewTextInput"
+                                                          DataObject.Pasting="ThresholdBox_Pasting"
+                                                          LostFocus="ThresholdBox_LostFocus"/>
+                                             </StackPanel>
+                                             <StackPanel Grid.Row="0" Grid.Column="3" Orientation="Horizontal">
+                                                 <TextBlock Style="{StaticResource ThresholdTag}" Text="CRIT"/>
+                                                 <TextBox Style="{StaticResource ThresholdBox}"
+                                                          Text="{Binding TempCritical, UpdateSourceTrigger=PropertyChanged}"
+                                                          PreviewTextInput="ThresholdBox_PreviewTextInput"
+                                                          DataObject.Pasting="ThresholdBox_Pasting"
+                                                          LostFocus="ThresholdBox_LostFocus"/>
+                                             </StackPanel>
+
+                                             <TextBlock Grid.Row="2" Style="{StaticResource PrimaryLabel}"
+                                                        Text="System Load (%)" VerticalAlignment="Center"
+                                                        ToolTip="CPU Load, GPU VRAM, and System RAM usage thresholds"/>
+                                             <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                                                 <TextBlock Style="{StaticResource ThresholdTag}" Text="WARN"/>
+                                                 <TextBox Style="{StaticResource ThresholdBox}"
+                                                          Text="{Binding LoadWarning, UpdateSourceTrigger=PropertyChanged}"
+                                                          PreviewTextInput="ThresholdBox_PreviewTextInput"
+                                                          DataObject.Pasting="ThresholdBox_Pasting"
+                                                          LostFocus="ThresholdBox_LostFocus"/>
+                                             </StackPanel>
+                                             <StackPanel Grid.Row="2" Grid.Column="3" Orientation="Horizontal">
+                                                 <TextBlock Style="{StaticResource ThresholdTag}" Text="CRIT"/>
+                                                 <TextBox Style="{StaticResource ThresholdBox}"
+                                                          Text="{Binding LoadCritical, UpdateSourceTrigger=PropertyChanged}"
+                                                          PreviewTextInput="ThresholdBox_PreviewTextInput"
+                                                          DataObject.Pasting="ThresholdBox_Pasting"
+                                                          LostFocus="ThresholdBox_LostFocus"/>
+                                             </StackPanel>
+
+                                             <TextBlock Grid.Row="4" Style="{StaticResource PrimaryLabel}"
+                                                        Text="Low Frame Rate (FPS)" VerticalAlignment="Center"
+                                                        ToolTip="Alerts when in-game FPS drops below these values"/>
+                                             <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                                                 <TextBlock Style="{StaticResource ThresholdTag}" Text="WARN"/>
+                                                 <TextBox Style="{StaticResource ThresholdBox}"
+                                                          Text="{Binding FpsWarning, UpdateSourceTrigger=PropertyChanged}"
+                                                          PreviewTextInput="ThresholdBox_PreviewTextInput"
+                                                          DataObject.Pasting="ThresholdBox_Pasting"
+                                                          LostFocus="ThresholdBox_LostFocus"/>
+                                             </StackPanel>
+                                             <StackPanel Grid.Row="4" Grid.Column="3" Orientation="Horizontal">
+                                                 <TextBlock Style="{StaticResource ThresholdTag}" Text="CRIT"/>
+                                                 <TextBox Style="{StaticResource ThresholdBox}"
+                                                          Text="{Binding FpsCritical, UpdateSourceTrigger=PropertyChanged}"
+                                                          PreviewTextInput="ThresholdBox_PreviewTextInput"
+                                                          DataObject.Pasting="ThresholdBox_Pasting"
+                                                          LostFocus="ThresholdBox_LostFocus"/>
+                                             </StackPanel>
+                                         </Grid>
+                                     </Border>
+
+                                     <!-- Reset Defaults action row -->
+                                     <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="12,7">
+                                         <Grid>
+                                             <Grid.ColumnDefinitions>
+                                                 <ColumnDefinition Width="*"/>
+                                                 <ColumnDefinition Width="Auto"/>
+                                             </Grid.ColumnDefinitions>
+                                             <TextBlock Style="{StaticResource HintText}" FontSize="11" VerticalAlignment="Center"
+                                                        Text="Restore default alert colors (#F59E0B / #EF4444) and threshold values"/>
+                                             <Button Grid.Column="1" VerticalAlignment="Center"
+                                                     Style="{StaticResource FlatButton}"
+                                                     Content="Reset Defaults"
+                                                     Click="ResetWarningDefaults_Click"/>
+                                         </Grid>
+                                     </Border>
+                                 </StackPanel>
+                             </StackPanel>
+                         </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================ SETTINGS ============================ -->
+            <TabItem Header="Settings">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,14,16,14">
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="APP ACCENT COLOR"/>
+                        <Border Style="{StaticResource PanelBox}" Padding="12,7">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource PrimaryLabel}" Text="App Accent Color" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource MetricSwatchButton}"
+                                            Background="{Binding AppAccentColorBrush}"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Choose preset accent color"
+                                            Click="AccentSwatch_Click"/>
+                                    <TextBox x:Name="AccentColorBox" Width="86" Height="26" Padding="4,0"
+                                             VerticalContentAlignment="Center" MaxLength="9"
+                                             ToolTip="Accent hex color, e.g. #00E5FF"
+                                             Text="{Binding AppAccentColor, UpdateSourceTrigger=PropertyChanged}">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAppAccentColorValid}" Value="False">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource CritBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <TextBlock Margin="2,8,0,0" Style="{StaticResource HintText}"
+                                   Text="Accent color for UI controls and highlights."/>
+
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="SYSTEM" Margin="2,18,0,5"/>
+                        <Border Style="{StaticResource PanelBox}" Padding="12,9">
+                            <StackPanel>
+                                <CheckBox Style="{StaticResource Switch}" Content="Run on Windows startup" IsChecked="{Binding RunOnStartup}"/>
+                                <TextBlock Margin="39,4,0,0" Style="{StaticResource HintText}"
+                                           Text="Start minimized at boot via Task Scheduler (skips UAC)."/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="RESET ALL SETTINGS" Margin="2,18,0,5"/>
+                        <Border Style="{StaticResource PanelBox}" Padding="12,11">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                                    <TextBlock Style="{StaticResource PrimaryLabel}" FontWeight="SemiBold" Text="Factory Defaults"/>
+                                    <TextBlock Margin="0,3,0,0" Style="{StaticResource HintText}"
+                                               Text="Resets all metrics, colors, scales, warning thresholds, and HUD screen position back to default."/>
+                                    <TextBlock x:Name="FactoryResetStatus" Visibility="Collapsed" Margin="0,5,0,0"
+                                               FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                               Foreground="{DynamicResource AccentBrush}"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" VerticalAlignment="Center"
+                                        Style="{StaticResource DangerButton}"
+                                        Content="Reset to Factory Defaults"
+                                        Click="ResetFactoryDefaults_Click"/>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="ABOUT &amp; SUPPORT" Margin="2,18,0,5"/>
+                        <Border Style="{StaticResource PanelBox}">
+                            <StackPanel>
+                                <StackPanel Margin="12,11,12,10">
+                                    <TextBlock Style="{StaticResource PrimaryLabel}" FontWeight="SemiBold"
+                                               Text="PeekHUD &#x2022; Standalone Game Telemetry HUD"/>
+                                    <TextBlock Margin="0,3,0,0" Style="{StaticResource HintText}"
+                                               Text="Created by Maxim DevLab"/>
+                                </StackPanel>
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="12,9">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource LinkButton}"
+                                                Content="Website"
+                                                ToolTip="Open https://maximdevlab.com/ in default browser"
+                                                Click="Website_Click"/>
+                                        <Button x:Name="ContactButton" Grid.Column="2" Style="{StaticResource LinkButton}"
+                                                Content="Contact"
+                                                ToolTip="Copy maxim.devlab@gmail.com to clipboard"
+                                                Click="Contact_Click"/>
+                                        <Button Grid.Column="4" Style="{StaticResource BmcButton}"
+                                                Content="&#x2615; Buy me a coffee"
+                                                ToolTip="Support development at https://buymeacoffee.com/maximd"
+                                                Click="BuyMeACoffee_Click"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- Clean 2-segment [ Dark | Light ] theme selector aligned on the far right of the tab header bar -->
+        <Border Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,12,0"
+                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="3"
+                Background="{DynamicResource WindowBrush}">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Style="{StaticResource Seg}" GroupName="AppThemeSelector"
+                             Content="Dark" FontSize="11" IsChecked="{Binding IsDarkTheme}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="AppThemeSelector"
+                             Content="Light" FontSize="11" IsChecked="{Binding IsLightTheme}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Shared preset swatch popup for Metric Color and App Accent Color rows -->
+        <Popup x:Name="ColorPresetPopup" StaysOpen="True" Placement="Custom"
+               AllowsTransparency="True" PopupAnimation="Fade"
+               PreviewKeyDown="ColorPresetPopup_PreviewKeyDown">
+            <Border Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource LineBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="6" Margin="6,2,6,8">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.35" Color="#000000"/>
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource PopupSwatchButton}" Background="#00E5FF" Tag="#00E5FF" Click="Preset_Click" ToolTip="Cyan Blue (#00E5FF)"/>
+                    <Button Style="{StaticResource PopupSwatchButton}" Background="#00FF88" Tag="#00FF88" Click="Preset_Click" ToolTip="Neon Green (#00FF88)"/>
+                    <Button Style="{StaticResource PopupSwatchButton}" Background="#9D4EDD" Tag="#9D4EDD" Click="Preset_Click" ToolTip="Electric Violet (#9D4EDD)"/>
+                    <Button Style="{StaticResource PopupSwatchButton}" Background="#FFB703" Tag="#FFB703" Click="Preset_Click" ToolTip="Amber Gold (#FFB703)"/>
+                    <Button Style="{StaticResource PopupSwatchButton}" Background="#FF4D6D" Tag="#FF4D6D" Click="Preset_Click" ToolTip="Coral Red (#FF4D6D)"/>
+                    <Button Style="{StaticResource PopupSwatchButton}" Background="#FFFFFF" Tag="#FFFFFF" Click="Preset_Click" ToolTip="Pure White (#FFFFFF)"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Border Grid.Row="1" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,6"
+                Background="{DynamicResource PanelBrush}">
+            <TextBlock FontFamily="Segoe UI" FontSize="11" Opacity="0.6" Foreground="{DynamicResource TextBrush}"
+                       Text="Changes apply instantly &#x2014; closing this window keeps PeekHUD running in the tray"/>
+        </Border>
+    </Grid>
+</Window>

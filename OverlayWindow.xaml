@@ -1,0 +1,32 @@
+<Window x:Class="PeekHUD.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PeekHUD Overlay" Icon="pack://application:,,,/PeekIcon.ico"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Focusable="False"
+        ResizeMode="NoResize" SizeToContent="WidthAndHeight" MinWidth="60"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
+
+    <Grid x:Name="Root" MinWidth="60" Background="Transparent"
+          MouseLeftButtonDown="Root_MouseLeftButtonDown"
+          MouseLeftButtonUp="Root_MouseLeftButtonUp">
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="ScaleXf" ScaleX="1" ScaleY="1"/>
+        </Grid.LayoutTransform>
+
+        <!-- HUD surface: flat tinted black, alpha driven by Settings.BgTransparency -->
+        <Border x:Name="Hud" CornerRadius="3" Background="#00000000" HorizontalAlignment="Left">
+            <!-- Tight 8px horizontal padding so minimal 1-metric HUDs hug their content without dead space -->
+            <StackPanel x:Name="Rows" Margin="8,5,8,5" Grid.IsSharedSizeScope="True">
+                <StackPanel.Effect>
+                    <DropShadowEffect Color="Black" ShadowDepth="1" BlurRadius="2" Opacity="0.9" Direction="315"/>
+                </StackPanel.Effect>
+            </StackPanel>
+        </Border>
+
+        <!-- Edit-mode hairline dashed outline -->
+        <Rectangle x:Name="EditBorder" Visibility="Collapsed" IsHitTestVisible="False"
+                   Stroke="{DynamicResource AccentBrush}" StrokeThickness="1" StrokeDashArray="3 3" RadiusX="3" RadiusY="3"/>
+    </Grid>
+</Window>
