@@ -1,6 +1,6 @@
 # PeekHUD
 
-> **Peek at your stats — zero bloat, instant telemetry.**
+> **Peek at your stats — lightweight & instant telemetry.**
 
 A lightweight, standalone hardware overlay HUD for PC gamers and power users built on .NET 8 WPF. Provides low-overhead telemetry without clunky bloatware suites or forced accounts.
 
