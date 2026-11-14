@@ -2,7 +2,7 @@
 
 > **Peek at your stats — lightweight & instant telemetry.**
 
-A lightweight, standalone hardware overlay HUD for PC gamers and power users built on .NET 8 WPF. Provides low-overhead telemetry without clunky bloatware suites or forced accounts.
+A lightweight, standalone hardware overlay HUD for PC gamers and power users built on .NET 8 WPF. Provides low-overhead telemetry without heavy background suites or forced accounts.
 
 ---
 
@@ -16,7 +16,9 @@ A lightweight, standalone hardware overlay HUD for PC gamers and power users bui
 - **Low-Overhead Telemetry:** Direct sensor polling via `LibreHardwareMonitorLib` and framerate tracking via ETW `TraceEvent`.
 - **Core Metrics:** FPS, CPU Temp/Load, GPU Temp/Load, VRAM usage, and System RAM.
 - **Customizable HUD:** Switch between numeric readouts and micro-graphs, customize HUD positioning, scaling, and background opacity.
-- **Electric Cyan Aesthetic:** Clean dark mode UI with pure white readouts and electric cyan accents.
+- **Themes & Color Styling:** Ships with a high-contrast dark mode and electric cyan accents by default, plus Dark/Light theme switching and custom color pickers for every metric.
+- **Dynamic Warning Alerts:** Metrics automatically shift to amber or red when temperatures, loads, or FPS hit custom thresholds.
+- **Global Hotkey Toggle:** Instantly hide or show the HUD in-game using a customizable shortcut (default `Ctrl+Shift+F`).
 - **Task Scheduler Startup:** Run automatically at Windows boot minimized to system tray with zero UAC prompts.
 
 ---
